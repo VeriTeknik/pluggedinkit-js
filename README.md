@@ -1,6 +1,12 @@
 # Plugged.in JavaScript/TypeScript SDK
 
+[![npm version](https://badge.fury.io/js/pluggedinkit-js.svg)](https://www.npmjs.com/package/pluggedinkit-js)
+[![Node.js Version](https://img.shields.io/node/v/pluggedinkit-js.svg)](https://www.npmjs.com/package/pluggedinkit-js)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Official JavaScript/TypeScript SDK for the Plugged.in Library API. Easily interact with document management, RAG (Retrieval-Augmented Generation) capabilities, and file uploads.
+
+**NPM**: [https://www.npmjs.com/package/pluggedinkit-js](https://www.npmjs.com/package/pluggedinkit-js)
 
 ## Installation
 
@@ -392,8 +398,10 @@ MIT - see [LICENSE](LICENSE) for details.
 
 ## Support
 
+- **NPM Package**: [https://www.npmjs.com/package/pluggedinkit-js](https://www.npmjs.com/package/pluggedinkit-js)
+- **GitHub Repository**: [https://github.com/VeriTeknik/pluggedinkit-js](https://github.com/VeriTeknik/pluggedinkit-js)
 - **Documentation**: [https://docs.plugged.in](https://docs.plugged.in)
-- **Issues**: [GitHub Issues](https://github.com/pluggedin/pluggedin-js-sdk/issues)
+- **Issues**: [GitHub Issues](https://github.com/VeriTeknik/pluggedinkit-js/issues)
 - **Discord**: [Join our community](https://discord.gg/pluggedin)
 
 ## Changelog
