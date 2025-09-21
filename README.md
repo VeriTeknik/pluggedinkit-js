@@ -1,0 +1,401 @@
+# Plugged.in JavaScript/TypeScript SDK
+
+Official JavaScript/TypeScript SDK for the Plugged.in Library API. Easily interact with document management, RAG (Retrieval-Augmented Generation) capabilities, and file uploads.
+
+## Installation
+
+```bash
+npm install pluggedinkit-js
+# or
+yarn add pluggedinkit-js
+# or
+pnpm add pluggedinkit-js
+```
+
+## Quick Start
+
+```typescript
+import { PluggedInClient } from 'pluggedinkit-js';
+
+// Initialize the client
+const client = new PluggedInClient({
+  apiKey: 'your-api-key',
+  // baseUrl is optional, defaults to https://plugged.in
+});
+
+// List documents
+const documents = await client.documents.list({
+  limit: 10,
+  source: 'all'
+});
+
+// Search documents semantically
+const results = await client.documents.search('machine learning', {
+  tags: ['ai', 'ml'],
+  dateFrom: '2024-01-01T00:00:00Z'
+});
+
+// Query knowledge base
+const answer = await client.rag.query('What is the latest update on the project?');
+```
+
+## Features
+
+- 📄 **Document Management** - Full CRUD operations for documents
+- 🔍 **Semantic Search** - AI-powered document search
+- 🤖 **RAG Integration** - Query your knowledge base with natural language
+- 📤 **File Uploads** - Upload files with progress tracking
+- 🔄 **Version Control** - Document versioning and history
+- ⚡ **Type Safety** - Full TypeScript support with comprehensive types
+- 🔐 **Authentication** - Secure API key authentication
+- 🔁 **Retry Logic** - Automatic retries with exponential backoff
+- 📊 **Rate Limiting** - Built-in rate limit handling
+
+## Authentication
+
+Get your API key from your Plugged.in profile settings and initialize the client:
+
+```typescript
+const client = new PluggedInClient({
+  apiKey: process.env.PLUGGEDIN_API_KEY,
+  // baseUrl defaults to https://plugged.in
+  // For local development, use: baseUrl: 'http://localhost:12005'
+});
+```
+
+## Documentation
+
+### Document Operations
+
+#### List Documents
+
+```typescript
+const response = await client.documents.list({
+  source: 'ai_generated',
+  tags: ['report', 'analysis'],
+  sort: 'date_desc',
+  limit: 20,
+  offset: 0
+});
+
+console.log(`Found ${response.total} documents`);
+response.documents.forEach(doc => {
+  console.log(`- ${doc.title} (${doc.fileSize} bytes)`);
+});
+```
+
+#### Get Document
+
+```typescript
+// Get document metadata
+const doc = await client.documents.get('document-id');
+
+// Get document with content
+const docWithContent = await client.documents.get('document-id', {
+  includeContent: true,
+  includeVersions: true
+});
+
+console.log(docWithContent.content);
+```
+
+#### Search Documents
+
+```typescript
+const searchResults = await client.documents.search('quarterly report', {
+  modelProvider: 'anthropic',
+  dateFrom: '2024-01-01T00:00:00Z',
+  tags: ['finance', 'q4']
+}, 10, 0);
+
+searchResults.results.forEach(result => {
+  console.log(`${result.title} (relevance: ${result.relevanceScore})`);
+  console.log(`  Snippet: ${result.snippet}`);
+});
+```
+
+#### Update Document
+
+```typescript
+const updateResult = await client.documents.update('document-id', {
+  operation: 'append',
+  content: '\n\n## New Section\n\nAdditional content here.',
+  metadata: {
+    changeSummary: 'Added new section on implementation details',
+    model: {
+      name: 'claude-3-opus',
+      provider: 'anthropic',
+      version: '20240229'
+    }
+  }
+});
+
+console.log(`Document updated to version ${updateResult.version}`);
+```
+
+#### Create AI-Generated Document
+
+```typescript
+const newDoc = await client.documents.create(
+  'API Integration Guide',
+  '# API Integration Guide\n\n## Introduction\n\n...',
+  {
+    format: 'md',
+    category: 'documentation',
+    tags: ['api', 'integration', 'guide'],
+    model: {
+      name: 'gpt-4',
+      provider: 'openai',
+      version: '0613'
+    },
+    prompt: 'Create a comprehensive API integration guide',
+    visibility: 'workspace'
+  }
+);
+
+console.log(`Created document: ${newDoc.id}`);
+```
+
+### RAG Operations
+
+#### Query Knowledge Base
+
+```typescript
+// Simple query
+const answer = await client.rag.askQuestion('What are our deployment procedures?');
+console.log(answer);
+
+// Query with source documents
+const { answer, sources } = await client.rag.queryWithSources(
+  'Explain the authentication flow',
+  'project-uuid' // Optional project scope
+);
+
+console.log('Answer:', answer);
+console.log('Sources:');
+sources.forEach(source => {
+  console.log(`- ${source.name} (relevance: ${source.relevance}%)`);
+});
+```
+
+#### Find Relevant Documents
+
+```typescript
+const relevantDocs = await client.rag.findRelevantDocuments(
+  'user authentication',
+  'project-uuid',
+  5 // Return top 5 documents
+);
+
+relevantDocs.forEach(doc => {
+  console.log(`- ${doc.name}`);
+  if (doc.model) {
+    console.log(`  Created by: ${doc.model.provider}/${doc.model.name}`);
+  }
+});
+```
+
+### File Upload Operations
+
+#### Upload Single File
+
+```typescript
+// Node.js example with fs
+import fs from 'fs';
+
+const fileBuffer = fs.readFileSync('./report.pdf');
+const uploadResult = await client.uploads.uploadFile(
+  fileBuffer,
+  {
+    name: 'Q4 Report.pdf',
+    description: 'Quarterly financial report',
+    tags: ['finance', 'q4', '2024'],
+    purpose: 'Financial documentation',
+    relatedTo: 'PROJECT-123'
+  },
+  (progress) => {
+    console.log(`Upload progress: ${progress}%`);
+  }
+);
+
+if (uploadResult.success) {
+  console.log(`File uploaded successfully: ${uploadResult.documentId}`);
+
+  // Track RAG processing if applicable
+  if (uploadResult.uploadId) {
+    await client.uploads.trackUpload(
+      uploadResult.uploadId,
+      (status) => {
+        console.log(`Processing: ${status.status} - ${status.message}`);
+      }
+    );
+  }
+}
+```
+
+#### Browser File Upload
+
+```typescript
+// Browser example with File API
+const fileInput = document.getElementById('file-input') as HTMLInputElement;
+const file = fileInput.files[0];
+
+const result = await client.uploads.uploadFile(
+  file,
+  {
+    name: file.name,
+    description: 'User uploaded document',
+    tags: ['user-upload']
+  },
+  (progress) => {
+    updateProgressBar(progress);
+  }
+);
+```
+
+#### Batch Upload
+
+```typescript
+const files = [
+  { file: file1, metadata: { name: 'doc1.pdf', tags: ['batch'] }},
+  { file: file2, metadata: { name: 'doc2.txt', tags: ['batch'] }},
+  { file: file3, metadata: { name: 'doc3.md', tags: ['batch'] }}
+];
+
+const results = await client.uploads.uploadBatch(
+  files,
+  (current, total) => {
+    console.log(`Uploaded ${current}/${total} files`);
+  }
+);
+
+results.forEach((result, index) => {
+  if (result.success) {
+    console.log(`✓ ${files[index].metadata.name} uploaded`);
+  } else {
+    console.log(`✗ ${files[index].metadata.name} failed: ${result.error}`);
+  }
+});
+```
+
+### Error Handling
+
+The SDK provides typed error classes for better error handling:
+
+```typescript
+import {
+  PluggedInError,
+  AuthenticationError,
+  RateLimitError,
+  NotFoundError
+} from 'pluggedinkit-js';
+
+try {
+  const doc = await client.documents.get('invalid-id');
+} catch (error) {
+  if (error instanceof AuthenticationError) {
+    console.error('Invalid API key');
+    // Refresh API key
+  } else if (error instanceof RateLimitError) {
+    console.error(`Rate limited. Retry after ${error.retryAfter} seconds`);
+    // Wait and retry
+  } else if (error instanceof NotFoundError) {
+    console.error('Document not found');
+  } else if (error instanceof PluggedInError) {
+    console.error(`API error: ${error.message}`);
+    console.error('Details:', error.details);
+  }
+}
+```
+
+### Advanced Configuration
+
+```typescript
+const client = new PluggedInClient({
+  apiKey: 'your-api-key',
+  baseUrl: 'https://api.plugged.in',
+  timeout: 60000, // 60 seconds
+  maxRetries: 5,
+  debug: true // Enable debug logging
+});
+
+// Update API key at runtime
+client.setApiKey('new-api-key');
+
+// Get current configuration
+const config = client.getConfig();
+```
+
+## Environment Variables
+
+For security, store your API key in environment variables:
+
+```bash
+# .env
+PLUGGEDIN_API_KEY=your-api-key
+PLUGGEDIN_BASE_URL=https://api.plugged.in
+```
+
+```typescript
+const client = new PluggedInClient({
+  apiKey: process.env.PLUGGEDIN_API_KEY!,
+  baseUrl: process.env.PLUGGEDIN_BASE_URL
+});
+```
+
+## Rate Limiting
+
+The SDK automatically handles rate limiting with exponential backoff:
+
+- **API Endpoints**: 60 requests per minute
+- **Document Search**: 10 requests per hour for AI document creation
+- **RAG Queries**: Subject to plan limits
+
+## TypeScript Support
+
+The SDK is written in TypeScript and provides comprehensive type definitions:
+
+```typescript
+import type {
+  Document,
+  DocumentFilters,
+  RagResponse,
+  UploadMetadata
+} from 'pluggedinkit-js';
+
+// All types are fully documented with JSDoc comments
+const filters: DocumentFilters = {
+  source: 'ai_generated',
+  tags: ['important'],
+  sort: 'date_desc'
+};
+```
+
+## Examples
+
+See the [examples](./examples) directory for complete working examples:
+
+- [Basic Usage](./examples/basic.ts)
+- [Document Management](./examples/documents.ts)
+- [RAG Queries](./examples/rag.ts)
+- [File Upload](./examples/upload.ts)
+- [Error Handling](./examples/errors.ts)
+- [Browser Usage](./examples/browser.html)
+
+## Contributing
+
+Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## License
+
+MIT - see [LICENSE](LICENSE) for details.
+
+## Support
+
+- **Documentation**: [https://docs.plugged.in](https://docs.plugged.in)
+- **Issues**: [GitHub Issues](https://github.com/pluggedin/pluggedin-js-sdk/issues)
+- **Discord**: [Join our community](https://discord.gg/pluggedin)
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
