@@ -70,7 +70,16 @@ export interface AIMetadata {
     topP?: number;
   };
   prompt?: string;
-  conversationContext?: string[];
+  conversationContext?: string[] | Array<{ role: string; content: string }>;
+  updateReason?: string;
+  changesFromPrompt?: string;
+  changeSummary?: string;
+  sourceDocuments?: string[];
+  visibility?: string;
+  sessionId?: string;
+  lastUpdatedBy?: ModelInfo;
+  lastUpdateTimestamp?: string;
+  [key: string]: any; // Allow additional fields
 }
 
 export interface ModelInfo {
@@ -132,6 +141,16 @@ export interface UpdateDocumentRequest {
     changeSummary?: string;
     model: ModelInfo;
     tags?: string[];
+    updateReason?: string;
+    changesFromPrompt?: string;
+    prompt?: string;
+    conversationContext?: string[] | Array<{ role: string; content: string }>;
+    sourceDocuments?: string[];
+    visibility?: string;
+    sessionId?: string;
+    lastUpdatedBy?: ModelInfo;
+    lastUpdateTimestamp?: string;
+    [key: string]: any; // Allow additional fields
   };
 }
 
@@ -152,7 +171,7 @@ export interface UploadMetadata {
   metadata?: {
     model: ModelInfo;
     context?: string;
-    conversationContext?: string[];
+    conversationContext?: string[] | Array<{ role: string; content: string }>;
     generationParams?: {
       temperature?: number;
       maxTokens?: number;
@@ -161,6 +180,13 @@ export interface UploadMetadata {
     prompt?: string;
     sourceDocuments?: string[];
     visibility?: 'private' | 'workspace' | 'public';
+    updateReason?: string;
+    changesFromPrompt?: string;
+    changeSummary?: string;
+    sessionId?: string;
+    lastUpdatedBy?: ModelInfo;
+    lastUpdateTimestamp?: string;
+    [key: string]: any; // Allow additional fields
   };
 }
 
