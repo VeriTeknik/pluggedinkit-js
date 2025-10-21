@@ -274,11 +274,17 @@ export class DocumentService {
       }
     );
 
-    if (!response.data.success) {
-      throw new PluggedInError(response.data.error || 'Failed to create document');
+    if (!response.data?.success) {
+      throw new PluggedInError(response.data?.error || 'Failed to create document');
     }
 
-    return this.transformDocument(response.data.document);
+    const documentId: string | undefined = response.data.documentId;
+    if (!documentId) {
+      throw new PluggedInError('Server did not return a document id');
+    }
+
+    const created = await this.get(documentId);
+    return created as Document;
   }
 
   /**

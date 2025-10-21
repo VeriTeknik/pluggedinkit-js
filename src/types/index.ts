@@ -230,6 +230,15 @@ export interface RagSourceDocument {
   isUnresolved?: boolean;
 }
 
+export interface RagStorageStats {
+  documentsCount: number;
+  totalChunks: number;
+  estimatedStorageMb: number;
+  vectorsCount?: number;
+  embeddingDimension?: number;
+  isEstimate?: boolean;
+}
+
 export interface ApiError {
   error: string;
   details?: any;

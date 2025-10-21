@@ -1,10 +1,15 @@
-import { AxiosInstance } from 'axios';
+import { AxiosError, AxiosInstance } from 'axios';
 import {
   ClientConfig,
+  PluggedInError,
   RagResponse,
   RagSourceDocument,
-  PluggedInError
+  RagStorageStats,
 } from '../types';
+
+export interface RagQueryOptions {
+  includeMetadata?: boolean;
+}
 
 export class RagService {
   constructor(
@@ -13,45 +18,39 @@ export class RagService {
   ) {}
 
   /**
-   * Query the knowledge base with a natural language question
+   * Query the knowledge base with a natural language question.
+   * The new `/api/rag/query` endpoint defaults to returning plain text. By
+   * enabling metadata we receive structured fields such as sources and ids.
    */
-  async query(query: string, projectUuid?: string): Promise<RagResponse> {
+  async query(query: string, options: RagQueryOptions = {}): Promise<RagResponse> {
+    const includeMetadata = options.includeMetadata ?? true;
+
     try {
-      // Try using the library endpoint first (if available)
       const response = await this.axios.post<any>(
-        '/api/library/rag/query',
+        '/api/rag/query',
         {
           query,
-          projectUuid
+          includeMetadata,
+        },
+        {
+          responseType: includeMetadata ? 'json' : 'text',
+          transformResponse: includeMetadata ? undefined : (value) => value,
         }
       );
 
-      return this.transformRagResponse(response.data);
+      return this.normaliseRagResponse(response.data);
     } catch (error) {
-      // Fallback to documents endpoint if library endpoint is not available
-      if (this.config.debug) {
-        console.log('[PluggedIn SDK] Falling back to documents RAG endpoint');
-      }
-
-      const response = await this.axios.post<any>(
-        '/api/documents/rag/query',
-        {
-          query,
-          projectUuid
-        }
-      );
-
-      return this.transformRagResponse(response.data);
+      throw this.toRagError(error, 'query knowledge base');
     }
   }
 
   /**
-   * Query knowledge base and get only the answer text
+   * Query knowledge base and return only the answer text.
    */
-  async askQuestion(query: string, projectUuid?: string): Promise<string> {
-    const response = await this.query(query, projectUuid);
+  async askQuestion(query: string): Promise<string> {
+    const response = await this.query(query, { includeMetadata: false });
 
-    if (!response.success || !response.answer) {
+    if (!response.success || response.answer === undefined) {
       throw new PluggedInError(
         response.error || 'No answer received from knowledge base'
       );
@@ -61,16 +60,15 @@ export class RagService {
   }
 
   /**
-   * Query knowledge base and get answer with source documents
+   * Query knowledge base and return the answer with formatted sources.
    */
   async queryWithSources(
-    query: string,
-    projectUuid?: string
+    query: string
   ): Promise<{
     answer: string;
     sources: RagSourceDocument[];
   }> {
-    const response = await this.query(query, projectUuid);
+    const response = await this.query(query, { includeMetadata: true });
 
     if (!response.success || !response.answer) {
       throw new PluggedInError(
@@ -80,156 +78,169 @@ export class RagService {
 
     return {
       answer: response.answer,
-      sources: response.documents || []
+      sources: response.documents ?? [],
     };
   }
 
   /**
-   * Get relevant documents for a query without generating an answer
+   * Retrieve documents relevant to a query.
    */
-  async findRelevantDocuments(
-    query: string,
-    projectUuid?: string,
-    limit: number = 5
-  ): Promise<RagSourceDocument[]> {
-    const response = await this.axios.post<any>(
-      '/api/documents/rag/search',
-      {
-        query,
-        projectUuid,
-        limit,
-        returnAnswer: false
-      }
-    );
+  async findRelevantDocuments(query: string): Promise<RagSourceDocument[]> {
+    const response = await this.query(query, { includeMetadata: true });
 
-    if (!response.data.success) {
+    if (!response.success) {
       throw new PluggedInError(
-        response.data.error || 'Failed to search documents'
+        response.error || 'Failed to retrieve relevant documents'
       );
     }
 
-    return response.data.documents || [];
+    return response.documents ?? [];
   }
 
   /**
-   * Check if RAG is available and configured
+   * Perform a lightweight availability check against the RAG service.
    */
-  async checkAvailability(): Promise<{
-    available: boolean;
-    message?: string;
-  }> {
+  async checkAvailability(): Promise<{ available: boolean; message?: string }> {
     try {
-      const response = await this.axios.get<any>('/api/rag/health');
-
-      return {
-        available: response.data.available || false,
-        message: response.data.message
-      };
+      await this.query('__pluggedin_health_check__', { includeMetadata: false });
+      return { available: true };
     } catch (error) {
+      if (this.config.debug) {
+        console.error('[PluggedIn SDK] RAG health check failed:', error);
+      }
+
       return {
         available: false,
-        message: 'RAG service is not available'
+        message: error instanceof Error ? error.message : String(error),
       };
     }
   }
 
   /**
-   * Get RAG storage statistics
+   * Fetch RAG storage statistics for the authenticated user.
+   * @param userId The Plugged.in user id associated with the API key.
    */
-  async getStorageStats(projectUuid?: string): Promise<{
-    documentCount: number;
-    totalSize: number;
-    vectorCount?: number;
-    lastUpdated?: Date;
-  }> {
-    const response = await this.axios.get<any>(
-      '/api/rag/stats',
-      {
-        params: projectUuid ? { projectUuid } : undefined
-      }
-    );
-
-    return {
-      documentCount: response.data.documentCount || 0,
-      totalSize: response.data.totalSize || 0,
-      vectorCount: response.data.vectorCount,
-      lastUpdated: response.data.lastUpdated
-        ? new Date(response.data.lastUpdated)
-        : undefined
-    };
-  }
-
-  /**
-   * Refresh RAG index for a specific document
-   */
-  async refreshDocument(
-    documentId: string,
-    projectUuid?: string
-  ): Promise<{
-    success: boolean;
-    message?: string;
-  }> {
-    const response = await this.axios.post<any>(
-      `/api/rag/refresh/${documentId}`,
-      {
-        projectUuid
-      }
-    );
-
-    return {
-      success: response.data.success || false,
-      message: response.data.message
-    };
-  }
-
-  /**
-   * Remove a document from the RAG index
-   */
-  async removeDocument(
-    documentId: string,
-    projectUuid?: string
-  ): Promise<{
-    success: boolean;
-    message?: string;
-  }> {
-    const response = await this.axios.delete<any>(
-      `/api/rag/documents/${documentId}`,
-      {
-        data: { projectUuid }
-      }
-    );
-
-    return {
-      success: response.data.success || false,
-      message: response.data.message
-    };
-  }
-
-  /**
-   * Transform API response to RagResponse type
-   */
-  private transformRagResponse(data: any): RagResponse {
-    // Handle different response formats from API
-    if (data.success !== undefined) {
-      // Already in expected format
-      return data;
+  async getStorageStats(userId: string): Promise<RagStorageStats> {
+    if (!userId) {
+      throw new PluggedInError('userId is required to fetch storage statistics');
     }
 
-    // Transform legacy format
-    if (data.answer || data.results) {
+    try {
+      const response = await this.axios.get<any>(
+        '/api/rag/storage-stats',
+        {
+          params: { user_id: userId },
+        }
+      );
+
+      const data = response.data ?? {};
+      return {
+        documentsCount: data.documents_count ?? 0,
+        totalChunks: data.total_chunks ?? 0,
+        estimatedStorageMb: data.estimated_storage_mb ?? 0,
+        vectorsCount: data.vectors_count,
+        embeddingDimension: data.embedding_dimension,
+        isEstimate: data.is_estimate ?? true,
+      };
+    } catch (error) {
+      throw this.toRagError(error, 'fetch storage statistics');
+    }
+  }
+
+  /**
+   * The public API no longer exposes explicit refresh operations.
+   */
+  async refreshDocument(): Promise<never> {
+    throw new PluggedInError(
+      'Document refresh is no longer available via the public API.'
+    );
+  }
+
+  /**
+   * The public API no longer exposes document removal operations.
+   */
+  async removeDocument(): Promise<never> {
+    throw new PluggedInError(
+      'Document removal from the RAG index is no longer available via the public API.'
+    );
+  }
+
+  private normaliseRagResponse(payload: any): RagResponse {
+    if (typeof payload === 'string') {
       return {
         success: true,
-        answer: data.answer || data.results,
-        sources: data.sources || [],
-        documentIds: data.documentIds || data.document_ids || [],
-        documents: data.documents || []
+        answer: payload,
+        sources: [],
+        documentIds: [],
+        documents: [],
       };
     }
 
-    // Error response
+    if (!payload || typeof payload !== 'object') {
+      return {
+        success: false,
+        error: 'Unexpected response format from RAG query endpoint',
+      };
+    }
+
+    const answer =
+      payload.answer ??
+      payload.response ??
+      payload.results ??
+      payload.message ??
+      '';
+
+    const sources = Array.isArray(payload.sources) ? payload.sources : [];
+    const documentIds = Array.isArray(payload.documentIds)
+      ? payload.documentIds
+      : Array.isArray(payload.document_ids)
+      ? payload.document_ids
+      : [];
+
+    const documents: RagSourceDocument[] = documentIds.map((id: string, index: number) => ({
+      id,
+      name: sources[index] ?? `Document ${index + 1}`,
+    }));
+
     return {
-      success: false,
-      error: data.error || 'Unknown error occurred'
+      success: payload.success ?? true,
+      answer,
+      sources,
+      documentIds,
+      documents,
+      error: payload.error,
     };
+  }
+
+  private toRagError(error: unknown, action: string): PluggedInError {
+    if (error instanceof PluggedInError) {
+      return error;
+    }
+
+    if ((error as AxiosError)?.isAxiosError) {
+      const axiosError = error as AxiosError<any>;
+
+      if (axiosError.response) {
+        const message =
+          axiosError.response.data?.error ||
+          axiosError.response.data?.message ||
+          `Failed to ${action}`;
+        return new PluggedInError(
+          message,
+          axiosError.response.status,
+          axiosError.response.data?.details ?? axiosError.response.data
+        );
+      }
+
+      if (axiosError.request) {
+        return new PluggedInError(
+          `No response received while attempting to ${action}`
+        );
+      }
+    }
+
+    return new PluggedInError(
+      error instanceof Error ? error.message : `Unable to ${action}`
+    );
   }
 }

@@ -1,275 +1,135 @@
 import { AxiosInstance } from 'axios';
-import FormData from 'form-data';
 import {
   ClientConfig,
+  DocumentWithContent,
+  PluggedInError,
   UploadMetadata,
   UploadResponse,
-  UploadProgress,
-  Document,
-  PluggedInError
 } from '../types';
 
 export class UploadService {
-  private uploadTrackers: Map<string, NodeJS.Timeout> = new Map();
-
   constructor(
     private axios: AxiosInstance,
     private config: Required<ClientConfig>
   ) {}
 
   /**
-   * Upload a file to the library
+   * Binary file uploads are no longer exposed through the public API.
+   * We throw an explicit error rather than silently failing so callers
+   * can migrate to the supported flows.
    */
-  async uploadFile(
-    file: File | Buffer | Blob,
-    metadata: {
-      name: string;
-      description?: string;
-      tags?: string[];
-      purpose?: string;
-      relatedTo?: string;
-      notes?: string;
-    },
-    onProgress?: (progress: number) => void
-  ): Promise<UploadResponse> {
-    const formData = this.createFormData(file, metadata);
-
-    const response = await this.axios.post<UploadResponse>(
-      '/api/library/upload',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: (progressEvent) => {
-          if (onProgress && progressEvent.total) {
-            const progress = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            onProgress(progress);
-          }
-        },
-      }
+  async uploadFile(): Promise<never> {
+    throw new PluggedInError(
+      'Binary file uploads are no longer supported via the API. ' +
+        'Please use the Plugged.in web interface or the forthcoming upload workflow.'
     );
-
-    if (!response.data.success) {
-      throw new PluggedInError(
-        response.data.error || 'Failed to upload file'
-      );
-    }
-
-    return response.data;
   }
 
   /**
-   * Upload a document with content directly (for AI-generated content)
+   * Upload an AI generated document directly.
+   * The new `/api/documents/ai` endpoint returns only identifiers, so we fetch
+   * the created document afterwards to provide a fully populated object.
    */
   async uploadDocument(
     content: string,
     metadata: UploadMetadata
-  ): Promise<Document> {
+  ): Promise<DocumentWithContent> {
     const response = await this.axios.post<any>(
-      '/api/documents',
+      '/api/documents/ai',
       {
         title: metadata.title,
         content,
         description: metadata.description,
         tags: metadata.tags,
-        category: metadata.category,
-        format: metadata.format || 'md',
+        category: metadata.category ?? 'other',
+        format: metadata.format ?? 'md',
         metadata: metadata.metadata,
       }
     );
 
-    if (!response.data.success) {
+    if (!response.data?.success) {
       throw new PluggedInError(
-        response.data.error || 'Failed to upload document'
+        response.data?.error || 'Failed to create AI document'
       );
     }
 
-    return this.transformDocument(response.data.document);
-  }
-
-  /**
-   * Upload multiple files in batch
-   */
-  async uploadBatch(
-    files: Array<{
-      file: File | Buffer | Blob;
-      metadata: {
-        name: string;
-        description?: string;
-        tags?: string[];
-      };
-    }>,
-    onProgress?: (current: number, total: number) => void
-  ): Promise<UploadResponse[]> {
-    const results: UploadResponse[] = [];
-    const total = files.length;
-
-    for (let i = 0; i < files.length; i++) {
-      const { file, metadata } = files[i]!;
-
-      try {
-        const result = await this.uploadFile(file, metadata);
-        results.push(result);
-
-        if (onProgress) {
-          onProgress(i + 1, total);
-        }
-      } catch (error) {
-        // Continue with other uploads even if one fails
-        results.push({
-          success: false,
-          error: error instanceof Error ? error.message : 'Upload failed',
-        });
-
-        if (onProgress) {
-          onProgress(i + 1, total);
-        }
-      }
+    const documentId: string | undefined = response.data.documentId;
+    if (!documentId) {
+      throw new PluggedInError('Server did not return a document id');
     }
 
-    return results;
-  }
-
-  /**
-   * Check upload status
-   */
-  async checkUploadStatus(uploadId: string): Promise<UploadProgress> {
-    const response = await this.axios.get<any>(
-      `/api/upload-status/${uploadId}`
+    const documentResponse = await this.axios.get<any>(
+      `/api/documents/${documentId}`,
+      {
+        params: { includeContent: 'true' },
+      }
     );
 
-    return {
-      uploadId,
-      status: response.data.status || 'pending',
-      progress: response.data.progress,
-      message: response.data.message,
-      error: response.data.error,
-    };
+    return this.transformDocument(documentResponse.data);
   }
 
   /**
-   * Track upload progress with polling
+   * Batch uploads are no longer available via the API.
    */
-  async trackUpload(
-    uploadId: string,
-    onUpdate: (progress: UploadProgress) => void,
-    pollInterval: number = 1000
-  ): Promise<void> {
-    // Clear any existing tracker for this upload
-    this.stopTracking(uploadId);
+  async uploadBatch(): Promise<UploadResponse[]> {
+    throw new PluggedInError(
+      'Batch uploads are no longer supported via the API.'
+    );
+  }
 
-    const poll = async () => {
-      try {
-        const status = await this.checkUploadStatus(uploadId);
-        onUpdate(status);
+  /**
+   * Upload status polling was removed alongside the legacy upload pipeline.
+   */
+  async checkUploadStatus(): Promise<never> {
+    throw new PluggedInError(
+      'Upload status tracking is no longer available via the API.'
+    );
+  }
 
-        if (status.status === 'completed' || status.status === 'failed') {
-          this.stopTracking(uploadId);
-        }
-      } catch (error) {
-        onUpdate({
-          uploadId,
-          status: 'failed',
-          error: error instanceof Error ? error.message : 'Failed to check status',
-        });
-        this.stopTracking(uploadId);
-      }
-    };
+  /**
+   * Upload tracking is no longer available but retained for backwards compatibility.
+   */
+  async trackUpload(): Promise<never> {
+    throw new PluggedInError(
+      'Upload status tracking is no longer available via the API.'
+    );
+  }
 
-    // Initial poll
-    await poll();
-
-    // Set up interval for subsequent polls
-    if (this.uploadTrackers.has(uploadId)) {
-      const interval = setInterval(poll, pollInterval);
-      this.uploadTrackers.set(uploadId, interval);
+  stopTracking(): void {
+    if (this.config.debug) {
+      console.warn('[PluggedIn SDK] stopTracking is a no-op in the current API.');
     }
   }
 
-  /**
-   * Stop tracking an upload
-   */
-  stopTracking(uploadId: string): void {
-    const interval = this.uploadTrackers.get(uploadId);
-    if (interval) {
-      clearInterval(interval);
-      this.uploadTrackers.delete(uploadId);
-    }
-  }
-
-  /**
-   * Stop tracking all uploads
-   */
   stopAllTracking(): void {
-    for (const interval of this.uploadTrackers.values()) {
-      clearInterval(interval);
+    if (this.config.debug) {
+      console.warn('[PluggedIn SDK] stopAllTracking is a no-op in the current API.');
     }
-    this.uploadTrackers.clear();
   }
 
-  /**
-   * Create FormData for file upload
-   */
-  private createFormData(
-    file: File | Buffer | Blob,
-    metadata: {
-      name: string;
-      description?: string;
-      tags?: string[];
-      purpose?: string;
-      relatedTo?: string;
-      notes?: string;
-    }
-  ): FormData {
-    const formData = new FormData();
-
-    // Handle different file types
-    if (file instanceof File) {
-      formData.append('file', file, file.name);
-    } else if (Buffer.isBuffer(file)) {
-      formData.append('file', file, metadata.name);
-    } else if (file instanceof Blob) {
-      formData.append('file', file, metadata.name);
-    } else {
-      throw new PluggedInError('Invalid file type');
-    }
-
-    // Add metadata
-    formData.append('name', metadata.name);
-    if (metadata.description) {
-      formData.append('description', metadata.description);
-    }
-    if (metadata.tags && metadata.tags.length > 0) {
-      formData.append('tags', metadata.tags.join(','));
-    }
-    if (metadata.purpose) {
-      formData.append('purpose', metadata.purpose);
-    }
-    if (metadata.relatedTo) {
-      formData.append('relatedTo', metadata.relatedTo);
-    }
-    if (metadata.notes) {
-      formData.append('notes', metadata.notes);
-    }
-
-    return formData;
-  }
-
-  /**
-   * Transform API response to Document type
-   */
-  private transformDocument(data: any): Document {
+  private transformDocument(data: any): DocumentWithContent {
     return {
-      ...data,
+      id: data.id,
+      title: data.title,
+      description: data.description,
+      fileName: data.fileName,
+      fileSize: data.fileSize,
+      mimeType: data.mimeType,
+      tags: data.tags ?? [],
+      source: data.source,
+      visibility: data.visibility,
+      version: data.version,
       createdAt: new Date(data.createdAt),
       updatedAt: new Date(data.updatedAt),
+      aiMetadata: data.aiMetadata,
       modelAttributions: data.modelAttributions?.map((attr: any) => ({
         ...attr,
         timestamp: new Date(attr.timestamp),
       })),
+      contentHash: data.contentHash,
+      parentDocumentId: data.parentDocumentId,
+      content: data.content,
+      contentEncoding: data.contentEncoding ?? 'utf-8',
     };
   }
 }
