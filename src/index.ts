@@ -8,6 +8,7 @@ export { PluggedInClient } from './client';
 export { PluggedInClient as default } from './client';
 
 // Services
+export { ClipboardService } from './services/clipboard';
 export { DocumentService } from './services/documents';
 export { RagService } from './services/rag';
 export { UploadService } from './services/uploads';
@@ -15,6 +16,16 @@ export { UploadService } from './services/uploads';
 // Types and interfaces
 export type {
   ClientConfig,
+  // Clipboard types
+  ClipboardEntry,
+  ClipboardListResponse,
+  ClipboardSetRequest,
+  ClipboardPushRequest,
+  ClipboardGetFilters,
+  ClipboardDeleteRequest,
+  ClipboardResponse,
+  ClipboardDeleteResponse,
+  // Document types
   Document,
   DocumentWithContent,
   DocumentVersion,
