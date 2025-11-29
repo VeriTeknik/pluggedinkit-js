@@ -283,6 +283,9 @@ export class NotFoundError extends PluggedInError {
 // Clipboard types
 export type ClipboardSource = 'ui' | 'sdk' | 'mcp';
 
+/** Default source for backward compatibility with older data */
+export const DEFAULT_CLIPBOARD_SOURCE: ClipboardSource = 'ui';
+
 export interface ClipboardEntry {
   uuid: string;
   name: string | null;
@@ -294,7 +297,8 @@ export interface ClipboardEntry {
   visibility: 'private' | 'workspace' | 'public';
   createdByTool: string | null;
   createdByModel: string | null;
-  source: ClipboardSource;
+  /** Source of the clipboard entry (optional for backward compatibility) */
+  source?: ClipboardSource;
   createdAt: Date;
   updatedAt: Date;
   expiresAt: Date | null;

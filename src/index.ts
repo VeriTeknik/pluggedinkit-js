@@ -57,3 +57,6 @@ export {
   AuthenticationError,
   NotFoundError,
 } from './types';
+
+// Constants
+export { DEFAULT_CLIPBOARD_SOURCE } from './types';
