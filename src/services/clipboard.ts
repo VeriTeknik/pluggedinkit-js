@@ -15,11 +15,30 @@ import {
   DEFAULT_CLIPBOARD_SOURCE
 } from '../types';
 
+// Known error message markers that indicate an empty clipboard (not a real error)
+const EMPTY_CLIPBOARD_MARKERS = ['empty', 'no indexed entries'];
+
 export class ClipboardService {
   constructor(
     private axios: AxiosInstance,
     private config: Required<ClientConfig>
   ) {}
+
+  /**
+   * Checks if an API response indicates an empty clipboard condition.
+   * This centralizes the brittle substring-based detection so backend
+   * contract changes only need updates in one place.
+   */
+  private isEmptyClipboardResponse(responseData?: ClipboardResponse): boolean {
+    if (!responseData) return false;
+
+    // Success with no entry = empty
+    if (responseData.success && !responseData.entry) return true;
+
+    // Check error message for known empty markers
+    const errorMessage = responseData.error?.toLowerCase() ?? '';
+    return EMPTY_CLIPBOARD_MARKERS.some(marker => errorMessage.includes(marker));
+  }
 
   /**
    * List clipboard entries with optional filters
@@ -39,12 +58,12 @@ export class ClipboardService {
 
     const response = await this.axios.get<any>('/api/clipboard', { params });
 
-    // Transform response
+    // Transform response - use ?? to preserve 0 values
     return {
-      entries: (response.data.entries || []).map((entry: any) => this.transformEntry(entry)),
-      total: response.data.total || 0,
-      limit: response.data.limit || 50,
-      offset: response.data.offset || 0
+      entries: (response.data.entries ?? []).map((entry: any) => this.transformEntry(entry)),
+      total: response.data.total ?? 0,
+      limit: response.data.limit ?? 50,
+      offset: response.data.offset ?? 0
     };
   }
 
@@ -63,10 +82,24 @@ export class ClipboardService {
     const response = await this.axios.get<any>('/api/clipboard', { params });
 
     if (!response.data.entry) {
-      throw new PluggedInError('Clipboard entry not found', 404);
+      throw new NotFoundError('Clipboard entry not found');
     }
 
     return this.transformEntry(response.data.entry);
+  }
+
+  /**
+   * Get a clipboard entry by name (convenience method)
+   */
+  async getByName(name: string): Promise<ClipboardEntry> {
+    return this.get({ name });
+  }
+
+  /**
+   * Get a clipboard entry by index (convenience method)
+   */
+  async getByIndex(idx: number): Promise<ClipboardEntry> {
+    return this.get({ idx });
   }
 
   /**
@@ -124,15 +157,8 @@ export class ClipboardService {
         return this.transformEntry(response.data.entry);
       }
 
-      // Success but no entry - clipboard is empty
-      if (response.data.success && !response.data.entry) {
-        return null;
-      }
-
-      // Not success - check if it's the specific "empty" case or a real error
-      // The API returns error message containing 'empty' or 'No indexed entries' for empty clipboard
-      const errorMessage = response.data.error?.toLowerCase() || '';
-      if (errorMessage.includes('empty') || errorMessage.includes('no indexed entries')) {
+      // Check for empty clipboard condition using centralized helper
+      if (this.isEmptyClipboardResponse(response.data)) {
         return null;
       }
 
