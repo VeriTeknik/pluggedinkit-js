@@ -280,11 +280,23 @@ export class NotFoundError extends PluggedInError {
   }
 }
 
-// Clipboard types
+// Clipboard constants
 export type ClipboardSource = 'ui' | 'sdk' | 'mcp';
 
 /** Default source for backward compatibility with older data */
 export const DEFAULT_CLIPBOARD_SOURCE: ClipboardSource = 'ui';
+
+/** Default limit for clipboard list operations */
+export const DEFAULT_CLIPBOARD_LIST_LIMIT = 50;
+
+/** Default offset for clipboard list operations */
+export const DEFAULT_CLIPBOARD_LIST_OFFSET = 0;
+
+/** Maximum TTL in seconds (1 year) */
+export const MAX_CLIPBOARD_TTL_SECONDS = 31536000;
+
+/** Maximum value size in bytes (2MB - matches backend) */
+export const MAX_CLIPBOARD_VALUE_SIZE = 2 * 1024 * 1024;
 
 export interface ClipboardEntry {
   uuid: string;
@@ -345,9 +357,27 @@ export interface ClipboardDeleteRequest {
   clearAll?: boolean;
 }
 
+/** Raw API entry with string dates (before transformation) */
+export interface ClipboardApiEntry {
+  uuid: string;
+  name: string | null;
+  idx: number | null;
+  value: string;
+  contentType: string;
+  encoding: 'utf-8' | 'base64' | 'hex';
+  sizeBytes: number;
+  visibility: 'private' | 'workspace' | 'public';
+  createdByTool: string | null;
+  createdByModel: string | null;
+  source?: ClipboardSource;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string | null;
+}
+
 export interface ClipboardResponse {
   success: boolean;
-  entry?: ClipboardEntry;
+  entry?: ClipboardApiEntry;
   error?: string;
 }
 
@@ -355,4 +385,22 @@ export interface ClipboardDeleteResponse {
   success: boolean;
   deleted: number;
   error?: string;
+}
+
+/** Raw API response for clipboard list operation */
+export interface ClipboardListApiResponse {
+  entries?: ClipboardApiEntry[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+  entry?: ClipboardApiEntry;
+  success?: boolean;
+  error?: string;
+}
+
+export class ValidationError extends PluggedInError {
+  constructor(message: string) {
+    super(message, 400);
+    this.name = 'ValidationError';
+  }
 }
