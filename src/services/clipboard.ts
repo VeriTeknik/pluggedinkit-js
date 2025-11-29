@@ -10,7 +10,8 @@ import {
   ClipboardResponse,
   ClipboardDeleteResponse,
   PaginationOptions,
-  PluggedInError
+  PluggedInError,
+  NotFoundError
 } from '../types';
 
 export class ClipboardService {
@@ -111,22 +112,24 @@ export class ClipboardService {
 
   /**
    * Pop the most recent entry from the indexed clipboard
+   * @returns The popped entry, or null if clipboard is empty
    */
   async pop(): Promise<ClipboardEntry | null> {
-    const response = await this.axios.post<ClipboardResponse>('/api/clipboard/pop', {});
+    try {
+      const response = await this.axios.post<ClipboardResponse>('/api/clipboard/pop', {});
 
-    if (!response.data.success) {
-      if (response.data.error?.includes('empty')) {
+      if (!response.data.success || !response.data.entry) {
         return null;
       }
-      throw new PluggedInError(response.data.error || 'Failed to pop clipboard entry');
-    }
 
-    if (!response.data.entry) {
-      return null;
+      return this.transformEntry(response.data.entry);
+    } catch (error) {
+      // 404 means clipboard is empty - this is a valid "not found" case
+      if (error instanceof NotFoundError) {
+        return null;
+      }
+      throw error;
     }
-
-    return this.transformEntry(response.data.entry);
   }
 
   /**
