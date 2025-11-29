@@ -50,6 +50,7 @@ const answer = await client.rag.query('What is the latest update on the project?
 - 📄 **Document Management** - Full CRUD operations for documents
 - 🔍 **Semantic Search** - AI-powered document search
 - 🤖 **RAG Integration** - Query your knowledge base with natural language
+- 📋 **Clipboard/Memory** - Persistent key-value storage for MCP tools and AI agents
 - 📤 **File Uploads** - Upload files with progress tracking
 - 🔄 **Version Control** - Document versioning and history
 - ⚡ **Type Safety** - Full TypeScript support with comprehensive types
@@ -283,6 +284,96 @@ results.forEach((result, index) => {
   }
 });
 ```
+
+### Clipboard Operations
+
+The clipboard provides persistent key-value storage for MCP tools and AI agents.
+
+#### Set Named Entry
+
+```typescript
+const entry = await client.clipboard.set({
+  name: 'user_preferences',
+  value: JSON.stringify({ theme: 'dark', lang: 'en' }),
+  contentType: 'application/json',
+  encoding: 'utf-8',
+  visibility: 'private',
+  ttlSeconds: 86400 // 24 hours
+});
+
+console.log(`Created entry: ${entry.uuid}`);
+console.log(`Source: ${entry.source}`); // 'sdk' - automatically set
+```
+
+#### Get Entry
+
+```typescript
+// By name
+const entry = await client.clipboard.getByName('user_preferences');
+console.log(entry.value);
+
+// By index (stack access)
+const latest = await client.clipboard.getByIndex(0);
+```
+
+#### Push to Stack
+
+```typescript
+const entry = await client.clipboard.push({
+  value: 'Processing step 1 result',
+  contentType: 'text/plain'
+});
+
+console.log(`Pushed to index: ${entry.idx}`);
+```
+
+#### Pop from Stack
+
+```typescript
+const entry = await client.clipboard.pop();
+if (entry) {
+  console.log(`Popped value: ${entry.value}`);
+}
+```
+
+#### List and Delete
+
+```typescript
+// List all entries
+const { entries, total } = await client.clipboard.list();
+entries.forEach(entry => {
+  console.log(`${entry.name || `idx:${entry.idx}`} - source: ${entry.source}`);
+});
+
+// Delete by name
+await client.clipboard.delete({ name: 'old_entry' });
+
+// Clear all
+await client.clipboard.clearAll();
+```
+
+#### Clipboard Entry Structure
+
+```typescript
+interface ClipboardEntry {
+  uuid: string;
+  name: string | null;           // Semantic key
+  idx: number | null;            // Stack index
+  value: string;
+  contentType: string;
+  encoding: 'utf-8' | 'base64' | 'hex';
+  sizeBytes: number;
+  visibility: 'private' | 'workspace' | 'public';
+  createdByTool: string | null;
+  createdByModel: string | null;
+  source?: 'ui' | 'sdk' | 'mcp'; // Auto-set based on creation method
+  createdAt: Date;
+  updatedAt: Date;
+  expiresAt: Date | null;
+}
+```
+
+> **Note**: The `source` field is automatically set to `'sdk'` when using this SDK. It indicates how the entry was created (UI, SDK, or MCP proxy).
 
 ### Error Handling
 

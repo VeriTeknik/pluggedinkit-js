@@ -10,7 +10,9 @@ import {
   ClipboardResponse,
   ClipboardDeleteResponse,
   PaginationOptions,
-  PluggedInError
+  PluggedInError,
+  NotFoundError,
+  DEFAULT_CLIPBOARD_SOURCE
 } from '../types';
 
 export class ClipboardService {
@@ -75,7 +77,13 @@ export class ClipboardService {
       throw new PluggedInError('Either name or idx must be provided');
     }
 
-    const response = await this.axios.post<ClipboardResponse>('/api/clipboard', request);
+    // Hardcode source: SDK always uses 'sdk' source
+    const requestWithSource = {
+      ...request,
+      source: 'sdk' as const
+    };
+
+    const response = await this.axios.post<ClipboardResponse>('/api/clipboard', requestWithSource);
 
     if (!response.data.success || !response.data.entry) {
       throw new PluggedInError(response.data.error || 'Failed to set clipboard entry');
@@ -88,7 +96,13 @@ export class ClipboardService {
    * Push a new entry to the indexed clipboard (auto-increment index)
    */
   async push(request: ClipboardPushRequest): Promise<ClipboardEntry> {
-    const response = await this.axios.post<ClipboardResponse>('/api/clipboard/push', request);
+    // Hardcode source: SDK always uses 'sdk' source
+    const requestWithSource = {
+      ...request,
+      source: 'sdk' as const
+    };
+
+    const response = await this.axios.post<ClipboardResponse>('/api/clipboard/push', requestWithSource);
 
     if (!response.data.success || !response.data.entry) {
       throw new PluggedInError(response.data.error || 'Failed to push clipboard entry');
@@ -99,22 +113,38 @@ export class ClipboardService {
 
   /**
    * Pop the most recent entry from the indexed clipboard
+   * @returns The popped entry, or null if clipboard is empty
    */
   async pop(): Promise<ClipboardEntry | null> {
-    const response = await this.axios.post<ClipboardResponse>('/api/clipboard/pop', {});
+    try {
+      const response = await this.axios.post<ClipboardResponse>('/api/clipboard/pop', {});
 
-    if (!response.data.success) {
-      if (response.data.error?.includes('empty')) {
+      // Success with entry - return it
+      if (response.data.success && response.data.entry) {
+        return this.transformEntry(response.data.entry);
+      }
+
+      // Success but no entry - clipboard is empty
+      if (response.data.success && !response.data.entry) {
         return null;
       }
+
+      // Not success - check if it's the specific "empty" case or a real error
+      // The API returns error message containing 'empty' or 'No indexed entries' for empty clipboard
+      const errorMessage = response.data.error?.toLowerCase() || '';
+      if (errorMessage.includes('empty') || errorMessage.includes('no indexed entries')) {
+        return null;
+      }
+
+      // Any other non-success response is a real error - throw it
       throw new PluggedInError(response.data.error || 'Failed to pop clipboard entry');
+    } catch (error) {
+      // 404 means clipboard is empty - this is a valid "not found" case
+      if (error instanceof NotFoundError) {
+        return null;
+      }
+      throw error;
     }
-
-    if (!response.data.entry) {
-      return null;
-    }
-
-    return this.transformEntry(response.data.entry);
   }
 
   /**
@@ -158,6 +188,8 @@ export class ClipboardService {
       visibility: data.visibility,
       createdByTool: data.createdByTool,
       createdByModel: data.createdByModel,
+      // Default to 'ui' for backward compatibility with older entries
+      source: data.source ?? DEFAULT_CLIPBOARD_SOURCE,
       createdAt: new Date(data.createdAt),
       updatedAt: new Date(data.updatedAt),
       expiresAt: data.expiresAt ? new Date(data.expiresAt) : null

@@ -17,6 +17,7 @@ export { UploadService } from './services/uploads';
 export type {
   ClientConfig,
   // Clipboard types
+  ClipboardSource,
   ClipboardEntry,
   ClipboardListResponse,
   ClipboardSetRequest,
@@ -56,3 +57,6 @@ export {
   AuthenticationError,
   NotFoundError,
 } from './types';
+
+// Constants
+export { DEFAULT_CLIPBOARD_SOURCE } from './types';
