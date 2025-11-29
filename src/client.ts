@@ -6,6 +6,7 @@ import {
   AuthenticationError,
   NotFoundError
 } from './types';
+import { ClipboardService } from './services/clipboard';
 import { DocumentService } from './services/documents';
 import { RagService } from './services/rag';
 import { UploadService } from './services/uploads';
@@ -18,6 +19,7 @@ export class PluggedInClient {
   private axios: AxiosInstance;
   private config: Required<ClientConfig>;
 
+  public readonly clipboard: ClipboardService;
   public readonly documents: DocumentService;
   public readonly rag: RagService;
   public readonly uploads: UploadService;
@@ -34,6 +36,7 @@ export class PluggedInClient {
     this.axios = this.createAxiosInstance();
 
     // Initialize services
+    this.clipboard = new ClipboardService(this.axios, this.config);
     this.documents = new DocumentService(this.axios, this.config);
     this.rag = new RagService(this.axios, this.config);
     this.uploads = new UploadService(this.axios, this.config);
