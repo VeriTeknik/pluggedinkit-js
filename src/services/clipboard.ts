@@ -75,7 +75,13 @@ export class ClipboardService {
       throw new PluggedInError('Either name or idx must be provided');
     }
 
-    const response = await this.axios.post<ClipboardResponse>('/api/clipboard', request);
+    // Hardcode source: SDK always uses 'sdk' source
+    const requestWithSource = {
+      ...request,
+      source: 'sdk' as const
+    };
+
+    const response = await this.axios.post<ClipboardResponse>('/api/clipboard', requestWithSource);
 
     if (!response.data.success || !response.data.entry) {
       throw new PluggedInError(response.data.error || 'Failed to set clipboard entry');
@@ -88,7 +94,13 @@ export class ClipboardService {
    * Push a new entry to the indexed clipboard (auto-increment index)
    */
   async push(request: ClipboardPushRequest): Promise<ClipboardEntry> {
-    const response = await this.axios.post<ClipboardResponse>('/api/clipboard/push', request);
+    // Hardcode source: SDK always uses 'sdk' source
+    const requestWithSource = {
+      ...request,
+      source: 'sdk' as const
+    };
+
+    const response = await this.axios.post<ClipboardResponse>('/api/clipboard/push', requestWithSource);
 
     if (!response.data.success || !response.data.entry) {
       throw new PluggedInError(response.data.error || 'Failed to push clipboard entry');
@@ -158,6 +170,7 @@ export class ClipboardService {
       visibility: data.visibility,
       createdByTool: data.createdByTool,
       createdByModel: data.createdByModel,
+      source: data.source,
       createdAt: new Date(data.createdAt),
       updatedAt: new Date(data.updatedAt),
       expiresAt: data.expiresAt ? new Date(data.expiresAt) : null

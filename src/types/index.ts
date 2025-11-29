@@ -281,6 +281,8 @@ export class NotFoundError extends PluggedInError {
 }
 
 // Clipboard types
+export type ClipboardSource = 'ui' | 'sdk' | 'mcp';
+
 export interface ClipboardEntry {
   uuid: string;
   name: string | null;
@@ -292,6 +294,7 @@ export interface ClipboardEntry {
   visibility: 'private' | 'workspace' | 'public';
   createdByTool: string | null;
   createdByModel: string | null;
+  source: ClipboardSource;
   createdAt: Date;
   updatedAt: Date;
   expiresAt: Date | null;

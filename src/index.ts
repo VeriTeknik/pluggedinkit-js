@@ -17,6 +17,7 @@ export { UploadService } from './services/uploads';
 export type {
   ClientConfig,
   // Clipboard types
+  ClipboardSource,
   ClipboardEntry,
   ClipboardListResponse,
   ClipboardSetRequest,
