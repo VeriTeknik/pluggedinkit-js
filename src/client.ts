@@ -10,6 +10,7 @@ import { ClipboardService } from './services/clipboard';
 import { DocumentService } from './services/documents';
 import { RagService } from './services/rag';
 import { UploadService } from './services/uploads';
+import { AgentService } from './services/agents';
 
 const DEFAULT_BASE_URL = 'https://plugged.in';
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
@@ -23,6 +24,7 @@ export class PluggedInClient {
   public readonly documents: DocumentService;
   public readonly rag: RagService;
   public readonly uploads: UploadService;
+  public readonly agents: AgentService;
 
   constructor(config: ClientConfig) {
     this.config = {
@@ -40,6 +42,7 @@ export class PluggedInClient {
     this.documents = new DocumentService(this.axios, this.config);
     this.rag = new RagService(this.axios, this.config);
     this.uploads = new UploadService(this.axios, this.config);
+    this.agents = new AgentService(this.axios, this.config);
   }
 
   private createAxiosInstance(): AxiosInstance {

@@ -12,6 +12,7 @@ export { ClipboardService } from './services/clipboard';
 export { DocumentService } from './services/documents';
 export { RagService } from './services/rag';
 export { UploadService } from './services/uploads';
+export { AgentService } from './services/agents';
 
 // Types and interfaces
 export type {
@@ -49,6 +50,14 @@ export type {
   ModelAttribution,
   ApiError,
 } from './types';
+
+export type {
+  Agent,
+  CreateAgentRequest,
+  CreateAgentResponse,
+  AgentDetails,
+  ExportAgentRequest,
+} from './services/agents';
 
 // Error classes
 export {
