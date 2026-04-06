@@ -404,3 +404,50 @@ export class ValidationError extends PluggedInError {
     this.name = 'ValidationError';
   }
 }
+
+// --- Jungian Intelligence ---
+
+export interface IndividuationResponse {
+  total: number;
+  level: string;
+  weeklyTrend: string;
+  tip: string;
+  components: {
+    memoryDepth: number;
+    learningVelocity: number;
+    collectiveContribution: number;
+    selfAwareness: number;
+  };
+}
+
+export interface ArchetypedPattern {
+  uuid: string;
+  archetype: string;
+  archetypeLabel: string;
+  archetypeWeight: number;
+  patternType: string;
+  description: string;
+  pattern: string;
+  confidence: number;
+  similarity: number;
+}
+
+export interface ArchetypeSearchResponse {
+  patterns: ArchetypedPattern[];
+}
+
+export interface SynchronicityPattern {
+  uuid: string;
+  patternType: string;
+  description: string;
+  confidence: number;
+  uniqueProfiles: number;
+}
+
+export interface DreamConsolidation {
+  uuid: string;
+  sourceCount: number;
+  tokenSavings: number;
+  clusterSimilarity: number;
+  createdAt: string;
+}

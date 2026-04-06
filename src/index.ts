@@ -13,6 +13,7 @@ export { DocumentService } from './services/documents';
 export { RagService } from './services/rag';
 export { UploadService } from './services/uploads';
 export { AgentService } from './services/agents';
+export { JungianService } from './services/jungian';
 
 // Types and interfaces
 export type {
@@ -49,6 +50,12 @@ export type {
   ModelInfo,
   ModelAttribution,
   ApiError,
+  // Jungian Intelligence types
+  IndividuationResponse,
+  ArchetypedPattern,
+  ArchetypeSearchResponse,
+  SynchronicityPattern,
+  DreamConsolidation,
 } from './types';
 
 export type {
