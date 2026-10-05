@@ -1,5 +1,16 @@
 # Plugged.in JavaScript/TypeScript SDK
 
+> [!IMPORTANT]
+> **Project status (October 2026): open source, community-driven.**
+> plugged.in, the hosted service, is moving to a new, separately developed platform. After that move,
+> this repository will no longer run plugged.in. The code stays open source under its current license and
+> continues with open collaboration: issues, pull requests, forks and new maintainers are welcome, and
+> self-hosting remains supported. The cutover date will be announced here at least 60 days in advance.
+> [What this means](https://github.com/VeriTeknik/pluggedin-app/blob/main/PROJECT_STATUS.md)
+>
+> This client talks to the plugged.in API. After the cutover, the hosted endpoint will no longer serve it;
+> point it at your own pluggedin-app instance instead.
+
 [![npm version](https://badge.fury.io/js/pluggedinkit-js.svg)](https://www.npmjs.com/package/pluggedinkit-js)
 [![Node.js Version](https://img.shields.io/node/v/pluggedinkit-js.svg)](https://www.npmjs.com/package/pluggedinkit-js)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
